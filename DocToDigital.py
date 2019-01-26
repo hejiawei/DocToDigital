@@ -9,21 +9,25 @@ import time
 class DocToDigital:
     def __init__(self):
         pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
-        self.dict = {'Bank Statement': "C:/Users/jiawe/Downloads/Bank",
-                     'Car Payment': "C:/Users/jiawe/Downloads/Car"}
+        self.dict = {'balboa arms': "C:/Users/jiawe/OneDrive/Desktop/Scans/Balboa Arms",
+                     'balboa arms mortgage': "C:/Users/jiawe/OneDrive/Desktop/Scans/Balboa Arms Mortgage"}
         self.temp_dir = "C:/Users/jiawe/Downloads/"
         self.num_docs = 0
+
     def split_pdf(self):
         inputpdf = PdfFileReader(open("C:/Users/jiawe/Downloads/test.pdf", "rb"))
         output = PdfFileWriter()
 
-        for i in range(inputpdf.numPages):
+        i = 0
+        while i < inputpdf.numPages:
             pageObj = inputpdf.getPage(i)
 
             result, folder = self.check_for_break(i)
             if result is False:
                 output.addPage(pageObj)
             else:
+                i += 1
+
                 if os.path.exists(self.dict[folder]) is not True:
                     os.mkdir(self.dict[folder])
                 self.num_docs += 1
@@ -33,6 +37,8 @@ class DocToDigital:
                     inputpdf = PdfFileReader(open("C:/Users/jiawe/Downloads/test.pdf", "rb"))
                     output = PdfFileWriter()
 
+            i += 1
+
     def check_for_break(self, i):
         temp_pdf = os.path.join(self.temp_dir,"temp.pdf")
         temp_jpeg = os.path.join(self.temp_dir, "temp.jpeg")
@@ -41,6 +47,7 @@ class DocToDigital:
         output = PdfFileWriter()
         pageObj = inputpdf.getPage(i)
         output.addPage(pageObj)
+
         with open(temp_pdf, "wb") as outputStream:
             output.write(outputStream)
 
@@ -50,15 +57,16 @@ class DocToDigital:
         img = Image.open(temp_jpeg)
         data = np.asarray(img, dtype='int32')
 
-        if np.sum(data) < 690000000:
+        if np.sum(data) < 600000000:
             return False, None
 
         text = pytesseract.image_to_string(img)
+
         os.remove(temp_pdf)
         os.remove(temp_jpeg)
-        loc = ''
 
-        for i in range(0,len(text)-1):
+        loc = ''
+        for i in range(0,len(text)):
             loc += text[i]
 
         if loc in self.dict.keys():
