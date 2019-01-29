@@ -18,6 +18,7 @@ class DocToDigital:
         self.total_num_docs = 0
         self.curr_num_docs = 0
         self.num_scans = 0
+        self.prev_is_doc = False
 
     def split_pdf(self):
         path = "C:/Users/jiawe/Downloads/img*.pdf"
@@ -33,11 +34,18 @@ class DocToDigital:
                 print("num pages %i " % inputpdf.numPages)
                 while i < inputpdf.numPages:
                     pageObj = inputpdf.getPage(i)
-
+                    print(i)
                     result, folder = self.check_for_break(i, filename)
-                    if result is False:
+                    if self.prev_is_doc is True:
+                        print("Back of valid document")
+                        self.prev_is_doc = False
+                        output.addPage(pageObj)
+                    elif result is False:
+                        print("Found valid document")
+                        self.prev_is_doc = True
                         output.addPage(pageObj)
                     else:
+                        print("Splitter page")
                         i += 1
 
                         if os.path.exists(self.dict[folder]) is not True:
@@ -72,8 +80,8 @@ class DocToDigital:
             page.save(temp_jpeg, 'JPEG')
         img = Image.open(temp_jpeg)
         data = np.asarray(img, dtype='int32')
-
-        if np.sum(data) < 670000000:
+        print("File name: " + filename + ": " + str(np.sum(data)))
+        if np.sum(data) < 660000000:
             return False, None
 
         text = pytesseract.image_to_string(img)
