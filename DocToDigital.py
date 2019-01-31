@@ -24,13 +24,17 @@ class DocToDigital:
         self.num_scans = 0
         self.prev_is_doc = False
         self.use_blank = False
+        self.single_sided = False
 
         parser = argparse.ArgumentParser()
         parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
+        parser.add_argument('--single', help='use single-sided scans', action='store_true')
 
         options = parser.parse_args()
         if options.blank:
             self.use_blank = True
+        if options.single:
+            self.single_sided = True
 
     def split_pdf(self):
         path = "C:/Users/jiawe/Downloads/img*.pdf"
@@ -54,11 +58,13 @@ class DocToDigital:
                         output.addPage(pageObj)
                     elif result is False:
                         print("Found valid document")
-                        self.prev_is_doc = True
+                        if self.single_sided is False:
+                            self.prev_is_doc = True
                         output.addPage(pageObj)
                     else:
                         print("Splitter page")
-                        i += 1
+                        if self.single_sided is False:
+                            i += 1
 
                         if os.path.exists(self.dict[folder]) is not True:
                             os.mkdir(self.dict[folder])
@@ -93,6 +99,9 @@ class DocToDigital:
         img = Image.open(temp_jpeg)
         data = np.asarray(img, dtype='int32')
 
+        os.remove(temp_pdf)
+        os.remove(temp_jpeg)
+
         print(np.sum(data))
         if np.sum(data) < 640000000:
             return False, None
@@ -102,8 +111,6 @@ class DocToDigital:
 
         text = pytesseract.image_to_string(img)
         print(text)
-        os.remove(temp_pdf)
-        os.remove(temp_jpeg)
 
         loc = ''
         for i in range(0,len(text)):
