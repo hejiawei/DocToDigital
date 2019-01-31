@@ -6,19 +6,31 @@ import os
 import numpy as np
 import time
 import glob
+import argparse
 
 class DocToDigital:
     def __init__(self):
         pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
-        self.dict = {'balboa arms': "C:/Users/jiawe/OneDrive/Desktop/Scans/Balboa Arms",
+        self.dict = {'balboa arms': "C:/Users/jiawe/OneDrive/Desktop/Scans/5404 Balboa Arms",
                      'balboa arms mortgage': "C:/Users/jiawe/OneDrive/Desktop/Scans/Balboa Arms Mortgage",
                      'receipts': "C:/Users/jiawe/OneDrive/Desktop/Scans/Receipts",
-                     'bank statements': "C:/Users/jiawe/OneDrive/Desktop/Scans/Bank Statements",}
+                     'bank statement': "C:/Users/jiawe/OneDrive/Desktop/Scans/Bank Statements",
+                     'nobel dr': "C:/Users/jiawe/OneDrive/Desktop/Scans/4435 Nobel Dr",
+                     'car insurance': "C:/Users/jiawe/OneDrive/Desktop/Scans/Car Insurance",
+                     'blank' : "C:/Users/jiawe/OneDrive/Desktop/Scans/Collection"}
         self.temp_dir = "C:/Users/jiawe/Downloads/"
         self.total_num_docs = 0
         self.curr_num_docs = 0
         self.num_scans = 0
         self.prev_is_doc = False
+        self.use_blank = False
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
+
+        options = parser.parse_args()
+        if options.blank:
+            self.use_blank = True
 
     def split_pdf(self):
         path = "C:/Users/jiawe/Downloads/img*.pdf"
@@ -80,19 +92,24 @@ class DocToDigital:
             page.save(temp_jpeg, 'JPEG')
         img = Image.open(temp_jpeg)
         data = np.asarray(img, dtype='int32')
-        print("File name: " + filename + ": " + str(np.sum(data)))
-        if np.sum(data) < 660000000:
+
+        print(np.sum(data))
+        if np.sum(data) < 640000000:
             return False, None
 
+        if self.use_blank:
+            return True, "blank"
+
         text = pytesseract.image_to_string(img)
+        print(text)
         os.remove(temp_pdf)
         os.remove(temp_jpeg)
 
         loc = ''
         for i in range(0,len(text)):
             loc += text[i]
-            if loc in self.dict.keys():
-                return True, loc
+            if loc.lower() in self.dict.keys():
+                return True, loc.lower()
         return False, None
 
 prog = DocToDigital()
