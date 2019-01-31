@@ -25,6 +25,7 @@ class DocToDigital:
         self.prev_is_doc = False
         self.use_blank = False
         self.single_sided = False
+        self.ended = True
 
         parser = argparse.ArgumentParser()
         parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
@@ -49,19 +50,23 @@ class DocToDigital:
                 i = 0
                 print("num pages %i " % inputpdf.numPages)
                 while i < inputpdf.numPages:
+                    print("ended? :" + str(self.ended))
                     pageObj = inputpdf.getPage(i)
                     print(i)
                     result, folder = self.check_for_break(i, filename)
                     if self.prev_is_doc is True:
+                        self.ended = False
                         print("Back of valid document")
                         self.prev_is_doc = False
                         output.addPage(pageObj)
                     elif result is False:
+                        self.ended = False
                         print("Found valid document")
                         if self.single_sided is False:
                             self.prev_is_doc = True
                         output.addPage(pageObj)
                     else:
+                        self.ended = True
                         print("Splitter page")
                         if self.single_sided is False:
                             i += 1
@@ -77,6 +82,18 @@ class DocToDigital:
                             output = PdfFileWriter()
 
                     i += 1
+
+            # START EDIT
+            if self.ended is False:
+                if os.path.exists(self.dict['blank']) is not True:
+                    os.mkdir(self.dict['blank'])
+                self.total_num_docs += 1
+                self.curr_num_docs += 1
+                doc = os.path.join(self.dict['blank'], "%s.pdf" % self.total_num_docs)
+                with open(doc, "wb") as outputStream:
+                    output.write(outputStream)
+
+            # END EDIT
             os.rename(filename, "C:/Users/jiawe/Downloads/done_%i.pdf" % self.num_scans)
             self.num_scans += 1
         return True
