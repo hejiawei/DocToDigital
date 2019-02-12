@@ -12,16 +12,17 @@ class DocToDigital:
     def __init__(self):
         pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
 
-        self.dict = {'balboa arms': "C:/Users/jiawe/OneDrive/Desktop/Scans/5404 Balboa Arms",
-                     'balboa arms mortgage': "C:/Users/jiawe/OneDrive/Desktop/Scans/Balboa Arms Mortgage",
-                     'receipts': "C:/Users/jiawe/OneDrive/Desktop/Scans/Receipts",
-                     'bank statement': "C:/Users/jiawe/OneDrive/Desktop/Scans/Bank Statements",
-                     'nobel dr': "C:/Users/jiawe/OneDrive/Desktop/Scans/4435 Nobel Dr",
-                     'car insurance': "C:/Users/jiawe/OneDrive/Desktop/Scans/Car Insurance",
-                     'blank' : "C:/Users/jiawe/OneDrive/Desktop/Scans/Collection"}
-
         self.temp_dir = "C:/Users/jiawe/Downloads/"
-        self.scan_path = "C:/Users/jiawe/Downloads/"
+        self.scan_path = "C:/Users/jiawe/Downloads/Test/"
+        self.save_path = "C:/Users/jiawe/OneDrive/Desktop/Scans/Test/"
+
+        self.dict = {'balboa arms': os.path.join(self.save_path, "5404 Balboa Arms"),
+                     'balboa arms mortgage': os.path.join(self.save_path, "Balboa Arms Mortgage"),
+                     'receipts': os.path.join(self.save_path, "Receipts"),
+                     'bank statement': os.path.join(self.save_path, "Bank Statements"),
+                     'nobel dr': os.path.join(self.save_path, "4435 Nobel Dr"),
+                     'car insurance': os.path.join(self.save_path, "Car Insurance"),
+                     'blank' : os.path.join(self.save_path, "Collection")}
 
         # tracking pdf sets and parsed docs
         self.total_num_docs = 0 # # total num docs in one run
@@ -33,14 +34,17 @@ class DocToDigital:
         self.use_blank = False  # blank splitter mode
         self.single_sided = False   # single-sided doc mode
         self.ended = True   # save last doc even without splitter
+        self.debug = False
 
         parser = argparse.ArgumentParser()
         parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
         parser.add_argument('--single', help='use single-sided scans', action='store_true')
+        parser.add_argument('--debug', help='use single-sided scans', action='store_true')
 
         options = parser.parse_args()
         self.use_blank = options.blank
         self.single_sided = options.single
+        self.debug = options.debug
 
     def split_pdf(self):
         file_path = os.path.join(self.scan_path, "img*.pdf")
@@ -58,23 +62,27 @@ class DocToDigital:
             i = 0
             while i < inputpdf.numPages:
                 pageObj = inputpdf.getPage(i)
-
+                print(i)
                 # automatically copy back of a doc page
                 if self.prev_is_doc is True:
+                    print("prev was doc")
                     self.ended = False
                     self.prev_is_doc = False
                     output.addPage(pageObj)
                 else:
                     is_splitter, folder = self.check_for_break(i, f)
-
+                    print("check for break")
+                    print(is_splitter)
                     # copy doc page
                     if is_splitter is False:
+                        print("legit doc")
                         self.ended = False
                         if self.single_sided is False:
                             self.prev_is_doc = True
                         output.addPage(pageObj)
                     # found splitter page, don't copy it
                     else:
+                        print("found splitter page")
                         self.ended = True
                         # if single-sided scanning not enabled, skip checking the back of the splitter page
                         if self.single_sided is False:
@@ -93,8 +101,12 @@ class DocToDigital:
                             inputpdf = PdfFileReader(f)
                             output = PdfFileWriter()
                 i += 1
+                if self.debug and i >= (inputpdf.numPages - 2):
+                    print("debug page")
+                    i = inputpdf.numPages
 
         if self.ended is False:
+            print("ended is false")
             # place it in generic folder
             if os.path.exists(self.dict['blank']) is not True:
                 os.mkdir(self.dict['blank'])
@@ -130,12 +142,16 @@ class DocToDigital:
         os.remove(temp_pdf)
         os.remove(temp_jpeg)
 
+        print(np.sum(data))
+
+
         # likely a doc page
-        if np.sum(data) < 640000000:
+        if np.sum(data) < 640000000 or np.sum(data) > 720000000:
             return False, None
 
         if self.use_blank:
             return True, "blank"
+
 
         # OCR
         text = pytesseract.image_to_string(img)
