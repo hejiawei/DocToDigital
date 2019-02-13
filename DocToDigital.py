@@ -55,6 +55,7 @@ class DocToDigital:
         filename = glob.glob(file_path)[0]
         print("Scanning " + filename)
 
+
         with open(filename, "rb") as f:
             inputpdf = PdfFileReader(f)
             output = PdfFileWriter()
@@ -62,27 +63,21 @@ class DocToDigital:
             i = 0
             while i < inputpdf.numPages:
                 pageObj = inputpdf.getPage(i)
-                print(i)
                 # automatically copy back of a doc page
                 if self.prev_is_doc is True:
-                    print("prev was doc")
                     self.ended = False
                     self.prev_is_doc = False
                     output.addPage(pageObj)
                 else:
                     is_splitter, folder = self.check_for_break(i, f)
-                    print("check for break")
-                    print(is_splitter)
                     # copy doc page
                     if is_splitter is False:
-                        print("legit doc")
                         self.ended = False
                         if self.single_sided is False:
                             self.prev_is_doc = True
                         output.addPage(pageObj)
                     # found splitter page, don't copy it
                     else:
-                        print("found splitter page")
                         self.ended = True
                         # if single-sided scanning not enabled, skip checking the back of the splitter page
                         if self.single_sided is False:
@@ -101,22 +96,18 @@ class DocToDigital:
                             inputpdf = PdfFileReader(f)
                             output = PdfFileWriter()
                 i += 1
-                if self.debug and i >= (inputpdf.numPages - 2):
-                    print("debug page")
-                    i = inputpdf.numPages
 
-        if self.ended is False:
-            print("ended is false")
-            # place it in generic folder
-            if os.path.exists(self.dict['blank']) is not True:
-                os.mkdir(self.dict['blank'])
+            if self.ended is False:
+                # place it in generic folder
+                if os.path.exists(self.dict['blank']) is not True:
+                    os.mkdir(self.dict['blank'])
 
-            self.total_num_docs += 1
-            self.curr_num_docs += 1
+                self.total_num_docs += 1
+                self.curr_num_docs += 1
 
-            doc = os.path.join(self.dict['blank'], "%s.pdf" % self.total_num_docs)
-            with open(doc, "wb") as outputStream:
-                output.write(outputStream)
+                doc = os.path.join(self.dict['blank'], "%s.pdf" % self.total_num_docs)
+                with open(doc, "wb") as outputStream:
+                    output.write(outputStream)
 
         os.rename(filename, os.path.join(self.scan_path, "done_%i.pdf" % self.num_scans))
         self.num_scans += 1
@@ -142,16 +133,12 @@ class DocToDigital:
         os.remove(temp_pdf)
         os.remove(temp_jpeg)
 
-        print(np.sum(data))
-
-
         # likely a doc page
         if np.sum(data) < 640000000 or np.sum(data) > 720000000:
             return False, None
 
         if self.use_blank:
             return True, "blank"
-
 
         # OCR
         text = pytesseract.image_to_string(img)
