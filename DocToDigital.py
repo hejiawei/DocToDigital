@@ -5,160 +5,157 @@ from pdf2image import convert_from_path
 import os
 import numpy as np
 import time
+import datetime
 import glob
 import argparse
 
-class DocToDigital:
-    def __init__(self):
-        pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
 
-        self.temp_dir = "C:/Users/jiawe/Downloads/"
-        self.scan_path = "C:/Users/jiawe/Downloads/Test/"
-        self.save_path = "C:/Users/jiawe/OneDrive/Desktop/Scans/Test/"
+temp_dir = "C:/Users/jiawe/Downloads/"
+scan_path = "C:/Users/jiawe/Downloads/"
+save_path = "C:/Users/jiawe/OneDrive/Desktop/Scans/"
 
-        self.dict = {'balboa arms': os.path.join(self.save_path, "5404 Balboa Arms"),
-                     'balboa arms mortgage': os.path.join(self.save_path, "Balboa Arms Mortgage"),
-                     'receipts': os.path.join(self.save_path, "Receipts"),
-                     'bank statement': os.path.join(self.save_path, "Bank Statements"),
-                     'nobel dr': os.path.join(self.save_path, "4435 Nobel Dr"),
-                     'car insurance': os.path.join(self.save_path, "Car Insurance"),
-                     'blank' : os.path.join(self.save_path, "Collection")}
+dict = {'balboa arms': os.path.join(save_path, "5404 Balboa Arms"),
+             'balboa arms mortgage': os.path.join(save_path, "Balboa Arms Mortgage"),
+             'receipts': os.path.join(save_path, "Receipts"),
+             'bank statement': os.path.join( save_path, "Bank Statements"),
+             'nobel dr': os.path.join(save_path, "4435 Nobel Dr"),
+             'car insurance': os.path.join(save_path, "Car Insurance"),
+             'blank' : os.path.join(save_path, "Collection")}
 
-        # tracking pdf sets and parsed docs
-        self.total_num_docs = 0 # # total num docs in one run
-        self.curr_num_docs = 0  # num docs from pdf set
-        self.num_scans = 0  # pdf set of scans
+parser = argparse.ArgumentParser()
+parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
+parser.add_argument('--single', help='use single-sided scans', action='store_true')
+parser.add_argument('--debug', help='use single-sided scans', action='store_true')
 
-        # helper params
-        self.prev_is_doc = False    # auto-copy back pages of docs
-        self.use_blank = False  # blank splitter mode
-        self.single_sided = False   # single-sided doc mode
-        self.ended = True   # save last doc even without splitter
-        self.debug = False
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
-        parser.add_argument('--single', help='use single-sided scans', action='store_true')
-        parser.add_argument('--debug', help='use single-sided scans', action='store_true')
-
-        options = parser.parse_args()
-        self.use_blank = options.blank
-        self.single_sided = options.single
-        self.debug = options.debug
-
-    def split_pdf(self):
-        file_path = os.path.join(self.scan_path, "img*.pdf")
-
-        if len(glob.glob(file_path)) is 0:
-            return False
-
-        filename = glob.glob(file_path)[0]
-        print("Scanning " + filename)
+options = parser.parse_args()
+use_blank = options.blank
+single_sided = options.single
+debug = options.debug
 
 
-        with open(filename, "rb") as f:
-            inputpdf = PdfFileReader(f)
-            output = PdfFileWriter()
+def split_pdf():
+    # tracking pdf sets and parsed docs
+    curr_num_docs = 0  # num docs from pdf set
 
-            i = 0
-            while i < inputpdf.numPages:
-                pageObj = inputpdf.getPage(i)
-                # automatically copy back of a doc page
-                if self.prev_is_doc is True:
-                    self.ended = False
-                    self.prev_is_doc = False
-                    output.addPage(pageObj)
-                else:
-                    is_splitter, folder = self.check_for_break(i, f)
-                    # copy doc page
-                    if is_splitter is False:
-                        self.ended = False
-                        if self.single_sided is False:
-                            self.prev_is_doc = True
-                        output.addPage(pageObj)
-                    # found splitter page, don't copy it
-                    else:
-                        self.ended = True
-                        # if single-sided scanning not enabled, skip checking the back of the splitter page
-                        if self.single_sided is False:
-                            i += 1
+    # helper params
+    prev_is_doc = False  # auto-copy back pages of docs
+    use_blank = False  # blank splitter mode
+    single_sided = False  # single-sided doc mode
+    ended = True  # save last doc even without splitter
+    debug = False
 
-                        self.total_num_docs += 1
-                        self.curr_num_docs += 1
+    file_path = os.path.join(scan_path, "img*.pdf")
 
-                        if os.path.exists(self.dict[folder]) is not True:
-                            os.mkdir(self.dict[folder])
+    if len(glob.glob(file_path)) is 0:
+        return False, curr_num_docs
 
-                        doc = os.path.join(self.dict[folder],"%s.pdf" % self.total_num_docs)
-                        with open(doc, "wb") as outputStream:
-                            output.write(outputStream)
-                            # bug in PyPDF2, re-initialize
-                            inputpdf = PdfFileReader(f)
-                            output = PdfFileWriter()
-                i += 1
+    filename = glob.glob(file_path)[0]
+    print("Scanning " + filename)
 
-            if self.ended is False:
-                # place it in generic folder
-                if os.path.exists(self.dict['blank']) is not True:
-                    os.mkdir(self.dict['blank'])
-
-                self.total_num_docs += 1
-                self.curr_num_docs += 1
-
-                doc = os.path.join(self.dict['blank'], "%s.pdf" % self.total_num_docs)
-                with open(doc, "wb") as outputStream:
-                    output.write(outputStream)
-
-        os.rename(filename, os.path.join(self.scan_path, "done_%i.pdf" % self.num_scans))
-        self.num_scans += 1
-        return True
-
-    def check_for_break(self, i, filename):
-        temp_pdf = os.path.join(self.temp_dir,"temp.pdf")
-        temp_jpeg = os.path.join(self.temp_dir, "temp.jpeg")
-
-        inputpdf = PdfFileReader(filename)
+    with open(filename, "rb") as f:
+        inputpdf = PdfFileReader(f)
         output = PdfFileWriter()
-        pageObj = inputpdf.getPage(i)
-        output.addPage(pageObj)
 
-        with open(temp_pdf, "wb") as outputStream:
-            output.write(outputStream)
+        i = 0
+        while i < inputpdf.numPages:
+            pageObj = inputpdf.getPage(i)
+            # automatically copy back of a doc page
+            if prev_is_doc is True:
+                ended = False
+                prev_is_doc = False
+                output.addPage(pageObj)
+            else:
+                is_splitter, folder = check_for_break(i, f)
+                # copy doc page
+                if is_splitter is False:
+                    ended = False
+                    if single_sided is False:
+                        prev_is_doc = True
+                    output.addPage(pageObj)
+                # found splitter page, don't copy it
+                else:
+                    ended = True
+                    # if single-sided scanning not enabled, skip checking the back of the splitter page
+                    if single_sided is False:
+                        i += 1
 
-        pages = convert_from_path(temp_pdf, 500)    # convert to img
-        pages[0].save(temp_jpeg, 'JPEG')    # save as jpeg
-        img = Image.open(temp_jpeg)
-        data = np.asarray(img, dtype='int32')
+                    curr_num_docs += 1
 
-        os.remove(temp_pdf)
-        os.remove(temp_jpeg)
+                    if os.path.exists(dict[folder]) is not True:
+                        os.mkdir(dict[folder])
 
-        # likely a doc page
-        if np.sum(data) < 640000000 or np.sum(data) > 720000000:
-            return False, None
+                    doc = os.path.join(dict[folder], "%s.pdf" % curr_num_docs)
+                    with open(doc, "wb") as outputStream:
+                        output.write(outputStream)
+                        # bug in PyPDF2, re-initialize
+                        inputpdf = PdfFileReader(f)
+                        output = PdfFileWriter()
+            i += 1
 
-        if self.use_blank:
-            return True, "blank"
+        if ended is False:
+            # place it in generic folder
+            if os.path.exists(dict['blank']) is not True:
+                os.mkdir(dict['blank'])
 
-        # OCR
-        text = pytesseract.image_to_string(img)
+            curr_num_docs += 1
 
-        loc = ''
-        for i in range(0,len(text)):
-            loc += text[i]
-            if loc.lower() in self.dict.keys():
-                return True, loc.lower()
+            doc = os.path.join(dict['blank'], "%s.pdf" % curr_num_docs)
+            with open(doc, "wb") as outputStream:
+                output.write(outputStream)
+
+    os.rename(filename, os.path.join(scan_path, "%s_digitized.pdf" % datetime.date.today().strftime('%Y_%m_%d')))
+    return True, curr_num_docs
+
+
+def check_for_break(i, filename):
+    temp_pdf = os.path.join(temp_dir,"temp.pdf")
+    temp_jpeg = os.path.join(temp_dir, "temp.jpeg")
+
+    inputpdf = PdfFileReader(filename)
+    output = PdfFileWriter()
+    pageObj = inputpdf.getPage(i)
+    output.addPage(pageObj)
+
+    with open(temp_pdf, "wb") as outputStream:
+        output.write(outputStream)
+
+    pages = convert_from_path(temp_pdf, 500)    # convert to img
+    pages[0].save(temp_jpeg, 'JPEG')    # save as jpeg
+    img = Image.open(temp_jpeg)
+    data = np.asarray(img, dtype='int32')
+
+    os.remove(temp_pdf)
+    os.remove(temp_jpeg)
+
+    # likely a doc page
+    if np.sum(data) < 640000000 or np.sum(data) > 720000000:
         return False, None
 
+    if use_blank:
+        return True, "blank"
 
-prog = DocToDigital()
-while True:
+    # OCR
+    text = pytesseract.image_to_string(img)
+
+    loc = ''
+    for i in range(0,len(text)):
+        loc += text[i]
+        if loc.lower() in dict.keys():
+            return True, loc.lower()
+    return False, None
+
+
+def main():
     start_time = time.time()
-    scanned = prog.split_pdf()
+    scanned, curr_num_docs = split_pdf()
     if scanned:
         print("Scanning took " + str(round(time.time() - start_time, 1)) + " seconds.")
-        print(str(prog.curr_num_docs) + " documents filed away.")
-        prog.curr_num_docs = 0
+        print(str(curr_num_docs) + " documents filed away.")
     else:
-        time.sleep(5)
+        print("No documents available to scan.")
+
+
+if __name__ == "__main__":
+    main()
 
