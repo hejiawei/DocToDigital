@@ -8,30 +8,19 @@ import time
 import datetime
 import glob
 import argparse
+from mappings import dir_mapping, temp_dir, scan_path, tesseract_path
 
-pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files (x86)/Tesseract-OCR/tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
-temp_dir = "C:/Users/jiawe/Downloads/"
-scan_path = "C:/Users/jiawe/Downloads/"
-save_path = "C:/Users/jiawe/OneDrive/Desktop/Scans/"
 
-dict = {'balboa arms': os.path.join(save_path, "5404 Balboa Arms"),
-             'balboa arms mortgage': os.path.join(save_path, "Balboa Arms Mortgage"),
-             'receipts': os.path.join(save_path, "Receipts"),
-             'bank statement': os.path.join( save_path, "Bank Statements"),
-             'nobel dr': os.path.join(save_path, "4435 Nobel Dr"),
-             'car insurance': os.path.join(save_path, "Car Insurance"),
-             'blank' : os.path.join(save_path, "Collection")}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--blank', help='use blank pages to parse', action='store_true')
 parser.add_argument('--single', help='use single-sided scans', action='store_true')
-parser.add_argument('--debug', help='use single-sided scans', action='store_true')
 
 options = parser.parse_args()
 use_blank = options.blank
 single_sided = options.single
-debug = options.debug
 
 
 def split_pdf():
@@ -40,10 +29,7 @@ def split_pdf():
 
     # helper params
     prev_is_doc = False  # auto-copy back pages of docs
-    use_blank = False  # blank splitter mode
-    single_sided = False  # single-sided doc mode
     ended = True  # save last doc even without splitter
-    debug = False
 
     file_path = os.path.join(scan_path, "img*.pdf")
 
@@ -82,10 +68,10 @@ def split_pdf():
 
                     curr_num_docs += 1
 
-                    if os.path.exists(dict[folder]) is not True:
-                        os.mkdir(dict[folder])
+                    if os.path.exists(dir_mapping[folder]) is not True:
+                        os.mkdir(dir_mapping[folder])
 
-                    doc = os.path.join(dict[folder], "%s.pdf" % curr_num_docs)
+                    doc = os.path.join(dir_mapping[folder], "%s.pdf" % curr_num_docs)
                     with open(doc, "wb") as outputStream:
                         output.write(outputStream)
                         # bug in PyPDF2, re-initialize
@@ -95,22 +81,22 @@ def split_pdf():
 
         if ended is False:
             # place it in generic folder
-            if os.path.exists(dict['blank']) is not True:
-                os.mkdir(dict['blank'])
+            if os.path.exists(dir_mapping['blank']) is not True:
+                os.mkdir(dir_mapping['blank'])
 
             curr_num_docs += 1
 
-            doc = os.path.join(dict['blank'], "%s.pdf" % curr_num_docs)
+            doc = os.path.join(dir_mapping['blank'], "%s.pdf" % curr_num_docs)
             with open(doc, "wb") as outputStream:
                 output.write(outputStream)
 
-    os.rename(filename, os.path.join(scan_path, "%s_digitized.pdf" % datetime.date.today().strftime('%Y_%m_%d')))
+    os.rename(filename, os.path.join(scan_path, "%s_digitized.pdf" % datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')))
     return True, curr_num_docs
 
 
 def check_for_break(i, filename):
-    temp_pdf = os.path.join(temp_dir,"temp.pdf")
-    temp_jpeg = os.path.join(temp_dir, "temp.jpeg")
+    temp_pdf = os.path.join(temp_dir,"doctodigital_temp.pdf")
+    temp_jpeg = os.path.join(temp_dir, "doctodigital_temp.jpeg")
 
     inputpdf = PdfFileReader(filename)
     output = PdfFileWriter()
@@ -141,7 +127,7 @@ def check_for_break(i, filename):
     loc = ''
     for i in range(0,len(text)):
         loc += text[i]
-        if loc.lower() in dict.keys():
+        if loc.lower() in dir_mapping.keys():
             return True, loc.lower()
     return False, None
 
